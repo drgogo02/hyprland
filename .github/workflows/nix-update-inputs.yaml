@@ -2,40 +2,26 @@ name: "Nix update"
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 0 * * *' # daily
 
 jobs:
   update:
-    name: "inputs"
-    runs-on: ubuntu-latest
-    steps:
-    - name: Clone repository
-      uses: actions/checkout@v3
+    uses: ./.github/workflows/nix.yml
+    with:
+      command: nix/update-inputs.sh
 
-    - name: Install nix
-      uses: cachix/install-nix-action@v20
-      with:
-        install_url: https://nixos.org/nix/install
-        extra_nix_config: |
-          auto-optimise-store = true
-          access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-          experimental-features = nix-command flakes
+  build:
+    needs: update
+    uses: ./.github/workflows/nix-build.yml
 
-    - name: Update lockfile
-      run: nix/update-inputs.sh
+  build-waybar:
+    needs: update
+    uses: ./.github/workflows/nix.yml
+    with:
+      command: nix build -L .#waybar-hyprland
 
-    - uses: cachix/cachix-action@v12
-      with:
-        name: hyprland
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-
-    - name: Build packages
-      run: nix flake check --print-build-logs --accept-flake-config
-
-    - name: Build Waybar-Hyprland
-      run: nix build .#waybar-hyprland --print-build-logs
-
-    - uses: stefanzweifel/git-auto-commit-action@v4
-      with:
-        commit_message: "Nix: bump inputs"
-        commit_author: Mihai Fufezan <fufexan@protonmail.com>
+  push:
+    needs: [build, build-waybar]
+    uses: ./.github/workflows/commit.yml
+    with:
+      message: "Nix: bump inputs"

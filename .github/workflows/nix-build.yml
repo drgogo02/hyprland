@@ -1,0 +1,17 @@
+name: Nix Build
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        package:
+          - hyprland
+          - hyprland-nvidia
+          - xdg-desktop-portal-hyprland
+
+    uses: ./.github/workflows/nix.yml
+    with:
+      command: nix build -L .#${{ matrix.package }}
